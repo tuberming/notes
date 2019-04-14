@@ -83,6 +83,25 @@ ngx_signal_t  signals[] = {
 };
 
 
+/*****************************************************************************
+ Prototype    : ngx_spawn_process
+ Description  : ngx进程孵化
+ Input        : ngx_cycle_t *cycle      
+                ngx_spawn_proc_pt proc  
+                void *data              
+                char *name              
+                ngx_int_t respawn       
+ Output       : None
+ Return Value : pid
+ Calls        : 
+ Called By    : 
+ 
+  History        :
+  1.Date         : 2019/4/14
+    Author       : ZTM
+    Modification : Created function
+
+*****************************************************************************/
 ngx_pid_t
 ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     char *name, ngx_int_t respawn)
@@ -258,6 +277,22 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 }
 
 
+/*****************************************************************************
+ Prototype    : ngx_execute
+ Description  : EXEC方式启动其他程序
+ Input        : ngx_cycle_t *cycle   
+                ngx_exec_ctx_t *ctx  
+ Output       : None
+ Return Value : 
+ Calls        : 
+ Called By    : 
+ 
+  History        :
+  1.Date         : 2019/4/14
+    Author       : ZTM
+    Modification : Created function
+
+*****************************************************************************/
 ngx_pid_t
 ngx_execute(ngx_cycle_t *cycle, ngx_exec_ctx_t *ctx)
 {

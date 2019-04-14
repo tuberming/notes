@@ -120,12 +120,12 @@ typedef enum {
 #define NGX_SSL_BUFFERED       0x01
 #define NGX_HTTP_V2_BUFFERED   0x02
 
-
+/* 保存与客户端建立的连接数据 */
 struct ngx_connection_s {
     void               *data;
     ngx_event_t        *read;
     ngx_event_t        *write;
-
+    /* 建立连接的FD */
     ngx_socket_t        fd;
 
     ngx_recv_pt         recv;
