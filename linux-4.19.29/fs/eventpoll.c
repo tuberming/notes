@@ -1430,6 +1430,7 @@ static int ep_insert(struct eventpoll *ep, const struct epoll_event *event,
 	user_watches = atomic_long_read(&ep->user->epoll_watches);
 	if (unlikely(user_watches >= max_user_watches))
 		return -ENOSPC;
+        /* 从slab池中分配epi节点 */
 	if (!(epi = kmem_cache_alloc(epi_cache, GFP_KERNEL)))
 		return -ENOMEM;
 
@@ -1437,7 +1438,7 @@ static int ep_insert(struct eventpoll *ep, const struct epoll_event *event,
 	INIT_LIST_HEAD(&epi->rdllink);
 	INIT_LIST_HEAD(&epi->fllink);
 	INIT_LIST_HEAD(&epi->pwqlist);
-	epi->ep = ep;
+	epi->ep = ep; /* 设置指向ep的指针 */
 	ep_set_ffd(&epi->ffd, tfile, fd);
 	epi->event = *event;
 	epi->nwait = 0;
@@ -1481,6 +1482,7 @@ static int ep_insert(struct eventpoll *ep, const struct epoll_event *event,
 	 * Add the current item to the RB tree. All RB tree operations are
 	 * protected by "mtx", and ep_insert() is called with "mtx" held.
 	 */
+	 /* epi加入到rb tree中 */
 	ep_rbtree_insert(ep, epi);
 
 	/* now check if we've created too many backpaths */
@@ -1943,6 +1945,22 @@ static void clear_tfile_check_list(void)
 /*
  * Open an eventpoll file descriptor.
  */
+ 
+/*****************************************************************************
+ Prototype    : do_epoll_create
+ Description  : 创建epoll 文件描述符
+ Input        : int flags  
+ Output       : None
+ Return Value : static
+ Calls        : 
+ Called By    : 
+ 
+  History        :
+  1.Date         : 2019/5/3
+    Author       : ZTM
+    Modification : Created function
+
+*****************************************************************************/
 static int do_epoll_create(int flags)
 {
 	int error, fd;
@@ -1957,6 +1975,7 @@ static int do_epoll_create(int flags)
 	/*
 	 * Create the internal data structure ("struct eventpoll").
 	 */
+	 /* 分配struct eventpoll结构体并初始化 */
 	error = ep_alloc(&ep);
 	if (error < 0)
 		return error;
@@ -1964,18 +1983,22 @@ static int do_epoll_create(int flags)
 	 * Creates all the items needed to setup an eventpoll file. That is,
 	 * a file structure and a free file descriptor.
 	 */
+	 /* 获取当前进程一个没有使用的文件描述符 */
 	fd = get_unused_fd_flags(O_RDWR | (flags & O_CLOEXEC));
 	if (fd < 0) {
 		error = fd;
 		goto out_free_ep;
 	}
+    /* fd绑定任意iNode，并创建返回 struct file结构体，并将ep指针赋值file的私有数据域 */
 	file = anon_inode_getfile("[eventpoll]", &eventpoll_fops, ep,
 				 O_RDWR | (flags & O_CLOEXEC));
 	if (IS_ERR(file)) {
 		error = PTR_ERR(file);
 		goto out_free_fd;
 	}
+    /* 将file指针赋值给eventpoll */
 	ep->file = file;
+    /* 将fd和file关联 */
 	fd_install(fd, file);
 	return fd;
 
@@ -1990,7 +2013,21 @@ SYSCALL_DEFINE1(epoll_create1, int, flags)
 {
 	return do_epoll_create(flags);
 }
+/*****************************************************************************
+ Prototype    : SYSCALL_DEFINE
+ Description  : 定义系统调用 
+ Input        : None
+ Output       : None
+ Return Value : 
+ Calls        : 
+ Called By    : 
+ 
+  History        :
+  1.Date         : 2019/5/3
+    Author       : ZTM
+    Modification : Created function
 
+*****************************************************************************/
 SYSCALL_DEFINE1(epoll_create, int, size)
 {
 	if (size <= 0)
@@ -2004,6 +2041,21 @@ SYSCALL_DEFINE1(epoll_create, int, size)
  * the eventpoll file that enables the insertion/removal/change of
  * file descriptors inside the interest set.
  */
+/*****************************************************************************
+ Prototype    : SYSCALL_DEFINE4
+ Description  : 定义epoll_ctl函数，添加、删除监听描述符
+ Input        : epfd epoll的描述符，fd 被监听的描述符                                         
+ Output       : None
+ Return Value : 
+ Calls        : 
+ Called By    : 
+ 
+  History        :
+  1.Date         : 2019/5/3
+    Author       : ZTM
+    Modification : Created function
+
+*****************************************************************************/
 SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 		struct epoll_event __user *, event)
 {
@@ -2016,22 +2068,26 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 	struct eventpoll *tep = NULL;
 
 	error = -EFAULT;
+    /* 判断是否有传递event参数 */
 	if (ep_op_has_event(op) &&
 	    copy_from_user(&epds, event, sizeof(struct epoll_event)))
 		goto error_return;
 
 	error = -EBADF;
+    /* 获取struct fd结构体，存储有关文件的信息，fops等 */
 	f = fdget(epfd);
 	if (!f.file)
 		goto error_return;
 
 	/* Get the "struct file *" for the target file */
+    /* 获取目的文件的struct fd结构体 */
 	tf = fdget(fd);
 	if (!tf.file)
 		goto error_fput;
 
 	/* The target file descriptor must support poll */
 	error = -EPERM;
+    /* 检查目的文件是否支持epoll */
 	if (!file_can_poll(tf.file))
 		goto error_tgt_fput;
 
@@ -2045,6 +2101,7 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 	 * adding an epoll file descriptor inside itself.
 	 */
 	error = -EINVAL;
+    /* 检查加入epoll的fd本身不能是epoll类型的 */
 	if (f.file == tf.file || !is_file_epoll(f.file))
 		goto error_tgt_fput;
 
@@ -2065,6 +2122,7 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 	 * At this point it is safe to assume that the "private_data" contains
 	 * our own data structure.
 	 */
+	 /* 通过文件结构体的私有数据获取到struct eventpoll，ep是创建epoll fd的时候创建的 */
 	ep = f.file->private_data;
 
 	/*
@@ -2083,23 +2141,34 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 	 * EPOLL_CTL_ADD operations.
 	 */
 	mutex_lock_nested(&ep->mtx, 0);
-	if (op == EPOLL_CTL_ADD) {
+	if (op == EPOLL_CTL_ADD) 
+    {
 		if (!list_empty(&f.file->f_ep_links) ||
-						is_file_epoll(tf.file)) {
+					    is_file_epoll(tf.file)) 
+        {
 			full_check = 1;
 			mutex_unlock(&ep->mtx);
 			mutex_lock(&epmutex);
-			if (is_file_epoll(tf.file)) {
+			if (is_file_epoll(tf.file)) 
+           {
 				error = -ELOOP;
-				if (ep_loop_check(ep, tf.file) != 0) {
+				if (ep_loop_check(ep, tf.file) != 0)
+                {
 					clear_tfile_check_list();
 					goto error_tgt_fput;
 				}
-			} else
-				list_add(&tf.file->f_tfile_llink,
+                
+			} 
+            else
+            {
+                list_add(&tf.file->f_tfile_llink,
 							&tfile_check_list);
+            }
+				
 			mutex_lock_nested(&ep->mtx, 0);
-			if (is_file_epoll(tf.file)) {
+            
+			if (is_file_epoll(tf.file)) 
+            {
 				tep = tf.file->private_data;
 				mutex_lock_nested(&tep->mtx, 1);
 			}
@@ -2111,37 +2180,57 @@ SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
 	 * above, we can be sure to be able to use the item looked up by
 	 * ep_find() till we release the mutex.
 	 */
+	 /* 遍历rb tree 查找加入epoll的文件描述符对应的struct epitem */
 	epi = ep_find(ep, tf.file, fd);
 
 	error = -EINVAL;
-	switch (op) {
+	switch (op) 
+   {
+        
 	case EPOLL_CTL_ADD:
-		if (!epi) {
+		if (!epi) 
+        {
+            /* epi为空表面之前没有加入到红黑树中，则需要将节点加入到rb tree中 */
 			epds.events |= EPOLLERR | EPOLLHUP;
 			error = ep_insert(ep, &epds, tf.file, fd, full_check);
-		} else
-			error = -EEXIST;
-		if (full_check)
-			clear_tfile_check_list();
-		break;
+		} 
+        else
+        {
+    	    error = -EEXIST;
+    		if (full_check)
+    			clear_tfile_check_list();
+            
+    		break;
+        }
+        
 	case EPOLL_CTL_DEL:
-		if (epi)
-			error = ep_remove(ep, epi);
-		else
-			error = -ENOENT;
-		break;
+        {
+    		if (epi)
+                /* 将epi移除rb tree */
+    			error = ep_remove(ep, epi);
+    		else
+    			error = -ENOENT;
+            
+    		break;
+        }  
+    
 	case EPOLL_CTL_MOD:
-		if (epi) {
-			if (!(epi->event.events & EPOLLEXCLUSIVE)) {
+		if (epi) 
+        {
+			if (!(epi->event.events & EPOLLEXCLUSIVE)) 
+            {
 				epds.events |= EPOLLERR | EPOLLHUP;
 				error = ep_modify(ep, epi, &epds);
 			}
-		} else
+		} 
+        else
 			error = -ENOENT;
 		break;
 	}
+    
 	if (tep != NULL)
 		mutex_unlock(&tep->mtx);
+    
 	mutex_unlock(&ep->mtx);
 
 error_tgt_fput:
