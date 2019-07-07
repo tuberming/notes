@@ -347,12 +347,12 @@ asmlinkage void start_kernel(void)
  * enable them
  */
 	setup_arch(&command_line, &memory_start, &memory_end);
-	memory_start = paging_init(memory_start,memory_end);
-	trap_init();
-	init_IRQ();
-	sched_init();
-	parse_options(command_line);
-	init_modules();
+	memory_start = paging_init(memory_start,memory_end); /* set page tables */
+	trap_init(); /* set exception vector */
+	init_IRQ();  /* enable IRQ ? */
+	sched_init(); /* enable sched */
+	parse_options(command_line); /* parse param */
+	init_modules(); /* init kernel modules */
 #ifdef CONFIG_PROFILE
 	prof_buffer = (unsigned long *) memory_start;
 	/* only text is profiled */
@@ -362,27 +362,27 @@ asmlinkage void start_kernel(void)
 #endif
 	memory_start = console_init(memory_start,memory_end);
 	memory_start = bios32_init(memory_start,memory_end);
-	memory_start = kmalloc_init(memory_start,memory_end);
+	memory_start = kmalloc_init(memory_start,memory_end); /* enable malloc */
 	sti();
-	calibrate_delay();
-	memory_start = chr_dev_init(memory_start,memory_end);
-	memory_start = blk_dev_init(memory_start,memory_end);
+	calibrate_delay(); /* enable loop delay */ 
+	memory_start = chr_dev_init(memory_start,memory_end); /* enable char device */
+	memory_start = blk_dev_init(memory_start,memory_end); /* enable bulk device */
 	sti();
 #ifdef CONFIG_SCSI
-	memory_start = scsi_dev_init(memory_start,memory_end);
+	memory_start = scsi_dev_init(memory_start,memory_end); /* enable scsi device £¿ */
 #endif
 #ifdef CONFIG_INET
-	memory_start = net_dev_init(memory_start,memory_end);
+	memory_start = net_dev_init(memory_start,memory_end); /* network device enable */
 #endif
-	memory_start = inode_init(memory_start,memory_end);
-	memory_start = file_table_init(memory_start,memory_end);
-	memory_start = name_cache_init(memory_start,memory_end);
+	memory_start = inode_init(memory_start,memory_end); /* init inode */
+	memory_start = file_table_init(memory_start,memory_end); /* create file table */
+	memory_start = name_cache_init(memory_start,memory_end); /* enable name cache */
 	mem_init(memory_start,memory_end);
 	buffer_init();
 	time_init();
-	sock_init();
+	sock_init(); /* init socket for net */
 #ifdef CONFIG_SYSVIPC
-	ipc_init();
+	ipc_init(); /* enable IPC */
 #endif
 	sti();
 	check_bugs();
@@ -390,7 +390,7 @@ asmlinkage void start_kernel(void)
 	printk(linux_banner);
 
 	if (!fork())		/* we count on this going ok */
-		init();
+		init(); /* fork process do init process */
 /*
  * task[0] is meant to be used as an "idle" task: it may not sleep, but
  * it might do some general things like count free pages or it could be
@@ -401,7 +401,7 @@ asmlinkage void start_kernel(void)
  * Right now task[0] just does a infinite idle loop.
  */
 	for(;;)
-		idle();
+		idle();/* idle loop */
 }
 
 static int printf(const char *fmt, ...)
