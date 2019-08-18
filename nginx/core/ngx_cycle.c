@@ -34,7 +34,11 @@ ngx_uint_t             ngx_quiet_mode;
 static ngx_connection_t  dumb;
 /* STUB */
 
-
+/* 在构造ngx_cycle_t结构体成员的ngx_init_cycle方法中，
+ *   上面所列出的pool内存池成员、hostname主机名、日志文件new_log和log、
+ *   存储所有路径的pathes数组、共享内存、监听端口等都会在该方法中初始化。
+ *
+*/
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
 {
